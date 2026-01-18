@@ -93,7 +93,7 @@ Edit `lib/tokens.ts` to add more tokens:
 
 ## License
 
-MIT - Use it however you want.
+Apache License 2.0 
 
 ## Acknowledgments
 
