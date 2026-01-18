@@ -39,12 +39,16 @@ export interface SwapTransaction {
   estimatedGas?: string;
   allowanceTarget: string;
   permit2?: {
-    eip712: Permit2Eip712;
-  };
-  _debug?: {
-    hasPermit2: boolean;
-    hasEip712: boolean;
-    transactionTo: string;
+    eip712: {
+      types: Record<string, Array<{ name: string; type: string }>>;
+      domain: {
+        name: string;
+        chainId: number;
+        verifyingContract: `0x${string}`;
+      };
+      primaryType: string;
+      message: Record<string, unknown>;
+    };
   };
 }
 

@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract, useSignTypedData } from 'wagmi';
-import { erc20Abi, concat } from 'viem';
+import { erc20Abi, concat, numberToHex, size } from 'viem';
 import { Token, TOKENS } from '@/lib/tokens';
 import { getSwapPrice, getSwapTransaction, formatTokenAmount, parseTokenAmount, isNativeEth } from '@/lib/swap';
 import { TokenSelector } from './TokenSelector';
 import { ConnectButton } from './ConnectButton';
 
-// Permit2 contract address (for 0x v2 API)
+// Permit2 contract for 0x v2 approvals
 const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3' as `0x${string}`;
 
 export function SwapCard() {
@@ -128,7 +128,7 @@ export function SwapCard() {
     setBuyAmount(tempAmount);
   };
 
-  // Check if approval is needed (for 0x Exchange Proxy)
+  // Check if approval is needed
   const needsApproval = useCallback(() => {
     if (isNativeEth(sellToken.address)) return false;
     if (!sellAmount || parseFloat(sellAmount) === 0) return false;
@@ -227,38 +227,27 @@ export function SwapCard() {
         slippagePercentage: 0.01,
       });
 
-      // Debug: show what we got from API
-      console.log('Swap response:', swapTx);
-      console.log('Debug info:', swapTx._debug);
-
       if (!swapTx.to || !swapTx.data) {
         throw new Error('Invalid transaction data from API');
       }
 
       let txData = swapTx.data as `0x${string}`;
 
-      // For ERC-20 swaps, we need to sign the permit2 data
-      if (!isNativeEth(sellToken.address)) {
-        if (!swapTx.permit2?.eip712) {
-          throw new Error(`Permit2 data missing. Debug: hasPermit2=${swapTx._debug?.hasPermit2}, hasEip712=${swapTx._debug?.hasEip712}`);
-        }
-
+      // For ERC-20 sells, we need to sign permit2 data and append signature
+      if (!isNativeEth(sellToken.address) && swapTx.permit2?.eip712) {
         const permit2Data = swapTx.permit2.eip712;
-        console.log('Signing permit2 data:', permit2Data);
 
-        // Sign the permit2 EIP-712 typed data
+        // Sign the permit2 typed data
         const signature = await signTypedDataAsync({
           types: permit2Data.types,
-          domain: permit2Data.domain,
           primaryType: permit2Data.primaryType,
+          domain: permit2Data.domain,
           message: permit2Data.message,
         });
 
-        console.log('Got signature:', signature);
-
-        // Append signature to transaction data
-        txData = concat([swapTx.data as `0x${string}`, signature as `0x${string}`]);
-        console.log('Final tx data length:', txData.length);
+        // Append signature length and signature to transaction data
+        const signatureLength = numberToHex(size(signature), { size: 32 });
+        txData = concat([txData, signatureLength, signature]);
       }
 
       await sendTransactionAsync({
