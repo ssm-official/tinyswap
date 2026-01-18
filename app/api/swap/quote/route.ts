@@ -17,30 +17,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Convert slippage from decimal (0.01) to bps (100)
-  const slippageBps = Math.round(parseFloat(slippagePercentage) * 10000).toString();
-
-  const params = new URLSearchParams({
-    chainId: '1', // Ethereum mainnet
-    sellToken,
-    buyToken,
-    sellAmount,
-    slippageBps,
-  });
-
-  if (takerAddress) {
-    params.append('taker', takerAddress);
-  }
-
-  // Add integrator fee if configured
-  const feeRecipient = process.env.FEE_RECIPIENT;
-  const feeBps = process.env.FEE_BPS;
-  if (feeRecipient && feeBps) {
-    params.append('swapFeeRecipient', feeRecipient);
-    params.append('swapFeeBps', feeBps);
-    params.append('swapFeeToken', buyToken); // Take fee in the output token
-  }
-
   const apiKey = process.env.ZEROX_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -49,54 +25,62 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Use 0x API v1 (simpler approval flow, no permit2 signatures needed)
+  const params = new URLSearchParams({
+    sellToken,
+    buyToken,
+    sellAmount,
+    slippagePercentage,
+  });
+
+  if (takerAddress) {
+    params.append('takerAddress', takerAddress);
+  }
+
+  // Add integrator fee if configured
+  const feeRecipient = process.env.FEE_RECIPIENT;
+  const feeBps = process.env.FEE_BPS;
+  if (feeRecipient && feeBps) {
+    params.append('feeRecipient', feeRecipient);
+    params.append('buyTokenPercentageFee', (parseInt(feeBps) / 10000).toString());
+  }
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     '0x-api-key': apiKey,
-    '0x-version': 'v2',
   };
 
   try {
     const response = await fetch(
-      `${ZEROX_API_URL}/swap/permit2/quote?${params.toString()}`,
+      `${ZEROX_API_URL}/swap/v1/quote?${params.toString()}`,
       { headers }
     );
 
     const data = await response.json();
 
-    // Debug logging
-    console.log('0x API response keys:', Object.keys(data));
-    console.log('permit2 data:', JSON.stringify(data.permit2, null, 2));
-
     if (!response.ok) {
       return NextResponse.json(
-        { error: data.reason || data.message || 'Failed to fetch quote' },
+        { error: data.reason || data.validationErrors?.[0]?.reason || 'Failed to fetch quote' },
         { status: response.status }
       );
     }
 
-    // Transform v2 response to include transaction data
-    const transformedData = {
-      sellToken: data.sellToken,
-      buyToken: data.buyToken,
+    // v1 response format - direct transaction data
+    return NextResponse.json({
+      sellToken: data.sellTokenAddress,
+      buyToken: data.buyTokenAddress,
       sellAmount: data.sellAmount,
       buyAmount: data.buyAmount,
-      minBuyAmount: data.minBuyAmount,
-      price: (parseFloat(data.buyAmount) / parseFloat(data.sellAmount)).toString(),
-      estimatedGas: data.gas,
+      price: data.price,
+      estimatedGas: data.estimatedGas,
       gas: data.gas,
       gasPrice: data.gasPrice,
-      to: data.transaction?.to,
-      data: data.transaction?.data,
-      value: data.transaction?.value,
+      to: data.to,
+      data: data.data,
+      value: data.value,
       allowanceTarget: data.allowanceTarget,
-      permit2: data.permit2,
-      sources: data.route?.fills?.map((f: { source: string; proportionBps: string }) => ({
-        name: f.source,
-        proportion: (parseInt(f.proportionBps) / 10000).toString(),
-      })) || [],
-    };
-
-    return NextResponse.json(transformedData);
+      sources: data.sources,
+    });
   } catch (error) {
     console.error('Quote API error:', error);
     return NextResponse.json(
