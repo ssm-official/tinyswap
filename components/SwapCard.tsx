@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract, useSignTypedData } from 'wagmi';
-import { erc20Abi, concat, numberToHex, size } from 'viem';
+import { erc20Abi, concat } from 'viem';
 import { Token, TOKENS, NATIVE_ETH_ADDRESS } from '@/lib/tokens';
 import { getSwapPrice, getSwapTransaction, formatTokenAmount, parseTokenAmount, isNativeEth } from '@/lib/swap';
 import { TokenSelector } from './TokenSelector';
@@ -292,6 +292,8 @@ export function SwapCard() {
         slippagePercentage: 0.01,
       });
 
+      console.log('Swap transaction response:', JSON.stringify(swapTx, null, 2));
+
       if (!swapTx.to || !swapTx.data) {
         throw new Error('Invalid transaction data from API');
       }
@@ -302,6 +304,8 @@ export function SwapCard() {
       if (!isNativeEth(sellToken.address) && swapTx.permit2?.eip712) {
         const permit2Data = swapTx.permit2.eip712;
 
+        console.log('Permit2 EIP-712 data:', JSON.stringify(permit2Data, null, 2));
+
         // Sign the Permit2 EIP-712 typed data
         const signature = await signTypedDataAsync({
           types: permit2Data.types,
@@ -310,10 +314,12 @@ export function SwapCard() {
           message: permit2Data.message,
         });
 
-        // Append signature to transaction data
-        // The signature needs to be appended with its length prefix
-        const signatureLength = numberToHex(size(signature as `0x${string}`), { size: 32 });
-        txData = concat([swapTx.data as `0x${string}`, signatureLength, signature as `0x${string}`]);
+        console.log('Signature:', signature);
+
+        // Append signature directly to transaction data (no length prefix for 0x v2)
+        txData = concat([swapTx.data as `0x${string}`, signature as `0x${string}`]);
+      } else if (!isNativeEth(sellToken.address)) {
+        console.warn('No permit2 data returned from API for ERC-20 swap');
       }
 
       await sendTransactionAsync({

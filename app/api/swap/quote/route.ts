@@ -63,6 +63,10 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
+    // Debug logging
+    console.log('0x API response keys:', Object.keys(data));
+    console.log('permit2 data:', JSON.stringify(data.permit2, null, 2));
+
     if (!response.ok) {
       return NextResponse.json(
         { error: data.reason || data.message || 'Failed to fetch quote' },
