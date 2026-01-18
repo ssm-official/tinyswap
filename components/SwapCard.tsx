@@ -21,10 +21,35 @@ export function SwapCard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
+  const [ethPrice, setEthPrice] = useState<number>(0);
+
+  // Fetch ETH price for USD conversions
+  useEffect(() => {
+    const fetchEthPrice = async () => {
+      try {
+        const res = await fetch('/api/swap/price?sellToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&buyToken=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&sellAmount=1000000000000000000');
+        const data = await res.json();
+        if (data.buyAmount) {
+          setEthPrice(parseFloat(data.buyAmount) / 1e6);
+        }
+      } catch {
+        // Fallback price
+        setEthPrice(3300);
+      }
+    };
+    fetchEthPrice();
+    const interval = setInterval(fetchEthPrice, 30000); // Update every 30s
+    return () => clearInterval(interval);
+  }, []);
 
   const { data: sellTokenBalance } = useBalance({
     address: address,
     token: isNativeEth(sellToken.address) ? undefined : sellToken.address as `0x${string}`,
+  });
+
+  // Get ETH balance for gas checks
+  const { data: ethBalance } = useBalance({
+    address: address,
   });
 
   // Check token allowance for Permit2
@@ -116,12 +141,47 @@ export function SwapCard() {
     return allowance < sellAmountWei;
   }, [sellToken.address, sellAmount, sellToken.decimals, allowance]);
 
+  // Calculate USD value for a token amount
+  const getUsdValue = useCallback((amount: string, token: Token): string => {
+    if (!amount || parseFloat(amount) === 0 || !ethPrice) return '';
+
+    const numAmount = parseFloat(amount);
+    let usdValue = 0;
+
+    if (isNativeEth(token.address) || token.symbol === 'WETH') {
+      usdValue = numAmount * ethPrice;
+    } else if (token.symbol === 'USDC' || token.symbol === 'USDT' || token.symbol === 'DAI') {
+      usdValue = numAmount; // Stablecoins are ~$1
+    } else if (token.symbol === 'WBTC') {
+      usdValue = numAmount * ethPrice * 20; // Rough BTC/ETH ratio
+    } else {
+      return '';
+    }
+
+    return usdValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }, [ethPrice]);
+
+  // Estimate gas cost in USD
+  const estimatedGasCostUsd = useCallback((): string => {
+    const approvalGas = 50000; // Typical approval gas
+    const gasPrice = 30; // Gwei, rough estimate
+    const ethCost = (approvalGas * gasPrice) / 1e9;
+    const usdCost = ethCost * ethPrice;
+    return usdCost.toFixed(2);
+  }, [ethPrice]);
+
   const handleApprove = async () => {
     if (!address) return;
 
     // Check if user has balance
     if (!sellTokenBalance?.value || sellTokenBalance.value === BigInt(0)) {
       setError(`You don't have any ${sellToken.symbol} to swap`);
+      return;
+    }
+
+    // Check if user has ETH for gas
+    if (!ethBalance?.value || ethBalance.value === BigInt(0)) {
+      setError(`You need ETH to pay for gas (~$${estimatedGasCostUsd()}). Send some ETH to your wallet first.`);
       return;
     }
 
@@ -264,19 +324,26 @@ export function SwapCard() {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="0"
-            value={sellAmount}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^[0-9]*\.?[0-9]*$/.test(value)) {
-                setSellAmount(value);
-              }
-            }}
-            className="flex-1 bg-transparent text-3xl font-medium text-white outline-none placeholder:text-zinc-600"
-          />
+          <div className="flex-1">
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="0"
+              value={sellAmount}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                  setSellAmount(value);
+                }
+              }}
+              className="w-full bg-transparent text-3xl font-medium text-white outline-none placeholder:text-zinc-600"
+            />
+            {sellAmount && parseFloat(sellAmount) > 0 && (
+              <div className="mt-1 text-sm text-zinc-500">
+                {getUsdValue(sellAmount, sellToken)}
+              </div>
+            )}
+          </div>
           <TokenSelector
             selectedToken={sellToken}
             onSelect={setSellToken}
@@ -308,13 +375,20 @@ export function SwapCard() {
           <span className="text-sm text-zinc-400">You receive</span>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="text"
-            placeholder="0"
-            value={buyAmount}
-            readOnly
-            className="flex-1 bg-transparent text-3xl font-medium text-white outline-none placeholder:text-zinc-600"
-          />
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="0"
+              value={buyAmount}
+              readOnly
+              className="w-full bg-transparent text-3xl font-medium text-white outline-none placeholder:text-zinc-600"
+            />
+            {buyAmount && parseFloat(buyAmount) > 0 && (
+              <div className="mt-1 text-sm text-zinc-500">
+                {getUsdValue(buyAmount, buyToken)}
+              </div>
+            )}
+          </div>
           <TokenSelector
             selectedToken={buyToken}
             onSelect={setBuyToken}
