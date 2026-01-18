@@ -23,11 +23,18 @@ export function SwapCard() {
     token: isNativeEth(sellToken.address) ? undefined : sellToken.address as `0x${string}`,
   });
 
-  const { sendTransaction, data: txHash } = useSendTransaction();
+  const { sendTransactionAsync, data: txHash } = useSendTransaction();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
     hash: txHash,
   });
+
+  // Reset swapping state when transaction is submitted
+  useEffect(() => {
+    if (txHash) {
+      setIsSwapping(false);
+    }
+  }, [txHash]);
 
   // Fetch quote when sell amount changes
   const fetchQuote = useCallback(async () => {
@@ -103,7 +110,11 @@ export function SwapCard() {
         slippagePercentage: 0.01,
       });
 
-      sendTransaction({
+      if (!swapTx.to || !swapTx.data) {
+        throw new Error('Invalid transaction data from API');
+      }
+
+      await sendTransactionAsync({
         to: swapTx.to as `0x${string}`,
         data: swapTx.data as `0x${string}`,
         value: isNativeEth(sellToken.address) ? BigInt(swapTx.value || '0') : BigInt(0),
@@ -112,7 +123,6 @@ export function SwapCard() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Swap failed';
       setError(message);
-    } finally {
       setIsSwapping(false);
     }
   };
@@ -129,7 +139,8 @@ export function SwapCard() {
 
   const getButtonText = () => {
     if (!isConnected) return 'Connect Wallet';
-    if (isSwapping || isConfirming) return 'Swapping...';
+    if (isSwapping) return 'Confirm in Wallet...';
+    if (isConfirming) return 'Swapping...';
     if (isLoading) return 'Fetching Quote...';
     if (!sellAmount || parseFloat(sellAmount) === 0) return 'Enter Amount';
     if (error) return 'Swap Anyway';
