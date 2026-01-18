@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi';
+import { erc20Abi, maxUint256 } from 'viem';
 import { Token, TOKENS, NATIVE_ETH_ADDRESS } from '@/lib/tokens';
 import { getSwapPrice, getSwapTransaction, formatTokenAmount, parseTokenAmount, isNativeEth } from '@/lib/swap';
 import { TokenSelector } from './TokenSelector';
 import { ConnectButton } from './ConnectButton';
+
+// Permit2 contract address (same on all chains)
+const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3' as `0x${string}`;
 
 export function SwapCard() {
   const { address, isConnected } = useAccount();
@@ -23,6 +27,15 @@ export function SwapCard() {
     token: isNativeEth(sellToken.address) ? undefined : sellToken.address as `0x${string}`,
   });
 
+  // Check token allowance for Permit2
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: isNativeEth(sellToken.address) ? undefined : sellToken.address as `0x${string}`,
+    abi: erc20Abi,
+    functionName: 'allowance',
+    args: address ? [address, PERMIT2_ADDRESS] : undefined,
+  });
+
+  const { writeContractAsync: approveToken, isPending: isApproving } = useWriteContract();
   const { sendTransactionAsync, data: txHash } = useSendTransaction();
 
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
@@ -93,8 +106,48 @@ export function SwapCard() {
     setBuyAmount(tempAmount);
   };
 
+  // Check if approval is needed
+  const needsApproval = useCallback(() => {
+    if (isNativeEth(sellToken.address)) return false;
+    if (!sellAmount || parseFloat(sellAmount) === 0) return false;
+    if (allowance === undefined) return false;
+
+    const sellAmountWei = BigInt(parseTokenAmount(sellAmount, sellToken.decimals));
+    return allowance < sellAmountWei;
+  }, [sellToken.address, sellAmount, sellToken.decimals, allowance]);
+
+  const handleApprove = async () => {
+    if (!address) return;
+
+    setIsSwapping(true);
+    setError(null);
+
+    try {
+      await approveToken({
+        address: sellToken.address as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [PERMIT2_ADDRESS, maxUint256],
+      });
+
+      // Refetch allowance after approval
+      await refetchAllowance();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Approval failed';
+      setError(message);
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
   const handleSwap = async () => {
     if (!address || !sellAmount || parseFloat(sellAmount) === 0) return;
+
+    // Check if we need approval first
+    if (needsApproval()) {
+      await handleApprove();
+      return;
+    }
 
     setIsSwapping(true);
     setError(null);
@@ -139,17 +192,19 @@ export function SwapCard() {
 
   const getButtonText = () => {
     if (!isConnected) return 'Connect Wallet';
+    if (isApproving) return 'Approving...';
     if (isSwapping) return 'Confirm in Wallet...';
     if (isConfirming) return 'Swapping...';
     if (isLoading) return 'Fetching Quote...';
     if (!sellAmount || parseFloat(sellAmount) === 0) return 'Enter Amount';
+    if (needsApproval()) return `Approve ${sellToken.symbol}`;
     if (error) return 'Swap Anyway';
     return 'Swap';
   };
 
   const isButtonDisabled = () => {
     if (!isConnected) return false;
-    if (isSwapping || isConfirming || isLoading) return true;
+    if (isSwapping || isConfirming || isLoading || isApproving) return true;
     if (!sellAmount || parseFloat(sellAmount) === 0) return true;
     return false;
   };
