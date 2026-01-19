@@ -13,6 +13,32 @@ const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3' as `0x${str
 
 const SLIPPAGE_PRESETS = [0.5, 1, 3];
 
+// USDC addresses and decimals per chain for price fetching
+const CHAIN_STABLECOINS: Record<number, { address: string; decimals: number }> = {
+  1: { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
+  137: { address: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', decimals: 6 },
+  42161: { address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', decimals: 6 },
+  10: { address: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', decimals: 6 },
+  8453: { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
+  56: { address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', decimals: 18 },
+  43114: { address: '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E', decimals: 6 },
+  59144: { address: '0x176211869cA2b568f2A7D4EE941E073a821EE1ff', decimals: 6 },
+  534352: { address: '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4', decimals: 6 },
+  81457: { address: '0x4300000000000000000000000000000000000003', decimals: 18 }, // USDB
+};
+
+// Native token symbols per chain
+const CHAIN_NATIVE_SYMBOLS: Record<number, string> = {
+  1: 'ETH', 137: 'MATIC', 42161: 'ETH', 10: 'ETH', 8453: 'ETH',
+  56: 'BNB', 43114: 'AVAX', 59144: 'ETH', 534352: 'ETH', 81457: 'ETH',
+};
+
+// Wrapped native token symbols per chain
+const CHAIN_WRAPPED_SYMBOLS: Record<number, string> = {
+  1: 'WETH', 137: 'WMATIC', 42161: 'WETH', 10: 'WETH', 8453: 'WETH',
+  56: 'WBNB', 43114: 'WAVAX', 59144: 'WETH', 534352: 'WETH', 81457: 'WETH',
+};
+
 export function SwapCard() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -25,7 +51,7 @@ export function SwapCard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
-  const [ethPrice, setEthPrice] = useState<number>(0);
+  const [nativePrice, setNativePrice] = useState<number>(0);
   const [slippage, setSlippage] = useState<number>(0.5); // Default 0.5%
   const [customSlippage, setCustomSlippage] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
@@ -43,23 +69,31 @@ export function SwapCard() {
     setError(null);
   }, [chainId]);
 
-  // Fetch ETH price for USD conversions
+  // Fetch native token price for USD conversions (chain-aware)
   useEffect(() => {
-    const fetchEthPrice = async () => {
+    const fetchNativePrice = async () => {
       try {
-        const res = await fetch('/api/swap/price?sellToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&buyToken=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48&sellAmount=1000000000000000000');
+        const stablecoin = CHAIN_STABLECOINS[chainId] || CHAIN_STABLECOINS[1];
+        const res = await fetch(
+          `/api/swap/price?chainId=${chainId}&sellToken=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE&buyToken=${stablecoin.address}&sellAmount=1000000000000000000`
+        );
         const data = await res.json();
         if (data.buyAmount) {
-          setEthPrice(parseFloat(data.buyAmount) / 1e6);
+          setNativePrice(parseFloat(data.buyAmount) / Math.pow(10, stablecoin.decimals));
         }
       } catch {
-        setEthPrice(3300);
+        // Fallback prices for common native tokens
+        const fallbacks: Record<number, number> = {
+          1: 3300, 137: 0.5, 42161: 3300, 10: 3300, 8453: 3300,
+          56: 600, 43114: 35, 59144: 3300, 534352: 3300, 81457: 3300,
+        };
+        setNativePrice(fallbacks[chainId] || 3300);
       }
     };
-    fetchEthPrice();
-    const interval = setInterval(fetchEthPrice, 30000);
+    fetchNativePrice();
+    const interval = setInterval(fetchNativePrice, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chainId]);
 
   const { data: sellTokenBalance } = useBalance({
     address: address,
@@ -160,43 +194,54 @@ export function SwapCard() {
   }, [sellToken.address, sellAmount, sellToken.decimals, allowance]);
 
   const getUsdValue = useCallback((amount: string, token: Token): string => {
-    if (!amount || parseFloat(amount) === 0 || !ethPrice) return '';
+    if (!amount || parseFloat(amount) === 0 || !nativePrice) return '';
 
     const numAmount = parseFloat(amount);
     let usdValue = 0;
 
-    if (isNativeEth(token.address) || token.symbol === 'WETH') {
-      usdValue = numAmount * ethPrice;
-    } else if (token.symbol === 'USDC' || token.symbol === 'USDT' || token.symbol === 'DAI') {
+    const nativeSymbol = CHAIN_NATIVE_SYMBOLS[chainId] || 'ETH';
+    const wrappedSymbol = CHAIN_WRAPPED_SYMBOLS[chainId] || 'WETH';
+
+    if (isNativeEth(token.address) || token.symbol === wrappedSymbol) {
+      usdValue = numAmount * nativePrice;
+    } else if (['USDC', 'USDT', 'DAI', 'USDB'].includes(token.symbol)) {
       usdValue = numAmount;
-    } else if (token.symbol === 'WBTC') {
-      usdValue = numAmount * ethPrice * 20;
+    } else if (['WBTC', 'BTCB'].includes(token.symbol)) {
+      // Rough BTC estimate (about 20x ETH price on ETH chain, adjust for others)
+      usdValue = numAmount * nativePrice * 20;
+    } else if (token.symbol === 'ETH' && chainId === 56) {
+      // ETH on BSC - use ETH price (roughly 5.5x BNB)
+      usdValue = numAmount * nativePrice * 5.5;
     } else {
       return '';
     }
 
     return usdValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-  }, [ethPrice]);
+  }, [nativePrice, chainId]);
 
   // Convert USD amount to token amount
   const getTokenFromUsd = useCallback((usdValue: string, token: Token): string => {
-    if (!usdValue || parseFloat(usdValue) === 0 || !ethPrice) return '';
+    if (!usdValue || parseFloat(usdValue) === 0 || !nativePrice) return '';
 
     const usd = parseFloat(usdValue);
     let tokenAmount = 0;
 
-    if (isNativeEth(token.address) || token.symbol === 'WETH') {
-      tokenAmount = usd / ethPrice;
-    } else if (token.symbol === 'USDC' || token.symbol === 'USDT' || token.symbol === 'DAI') {
+    const wrappedSymbol = CHAIN_WRAPPED_SYMBOLS[chainId] || 'WETH';
+
+    if (isNativeEth(token.address) || token.symbol === wrappedSymbol) {
+      tokenAmount = usd / nativePrice;
+    } else if (['USDC', 'USDT', 'DAI', 'USDB'].includes(token.symbol)) {
       tokenAmount = usd;
-    } else if (token.symbol === 'WBTC') {
-      tokenAmount = usd / (ethPrice * 20);
+    } else if (['WBTC', 'BTCB'].includes(token.symbol)) {
+      tokenAmount = usd / (nativePrice * 20);
+    } else if (token.symbol === 'ETH' && chainId === 56) {
+      tokenAmount = usd / (nativePrice * 5.5);
     } else {
       return '';
     }
 
     return tokenAmount.toString();
-  }, [ethPrice]);
+  }, [nativePrice, chainId]);
 
   // Handle USD input changes
   const handleUsdChange = useCallback((value: string) => {
@@ -212,10 +257,10 @@ export function SwapCard() {
   const estimatedGasCostUsd = useCallback((): string => {
     const approvalGas = 50000;
     const gasPrice = 30;
-    const ethCost = (approvalGas * gasPrice) / 1e9;
-    const usdCost = ethCost * ethPrice;
+    const nativeCost = (approvalGas * gasPrice) / 1e9;
+    const usdCost = nativeCost * nativePrice;
     return usdCost.toFixed(2);
-  }, [ethPrice]);
+  }, [nativePrice]);
 
   const handleApprove = async () => {
     if (!address) return;
