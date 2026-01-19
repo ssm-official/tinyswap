@@ -11,6 +11,8 @@ import { ConnectButton } from './ConnectButton';
 // Permit2 contract for 0x v2 approvals
 const PERMIT2_ADDRESS = '0x000000000022d473030f116ddee9f6b43ac78ba3' as `0x${string}`;
 
+const SLIPPAGE_PRESETS = [0.5, 1, 3];
+
 export function SwapCard() {
   const { address, isConnected } = useAccount();
   const [sellToken, setSellToken] = useState<Token>(TOKENS[0]); // ETH
@@ -22,6 +24,9 @@ export function SwapCard() {
   const [error, setError] = useState<string | null>(null);
   const [isSwapping, setIsSwapping] = useState(false);
   const [ethPrice, setEthPrice] = useState<number>(0);
+  const [slippage, setSlippage] = useState<number>(0.5); // Default 0.5%
+  const [customSlippage, setCustomSlippage] = useState<string>('');
+  const [showSettings, setShowSettings] = useState(false);
 
   // Fetch ETH price for USD conversions
   useEffect(() => {
@@ -224,7 +229,7 @@ export function SwapCard() {
         buyToken,
         sellAmount: sellAmountWei,
         takerAddress: address,
-        slippagePercentage: 0.01,
+        slippagePercentage: slippage / 100, // Convert percentage to decimal
       });
 
       if (!swapTx.to || !swapTx.data) {
@@ -305,7 +310,10 @@ export function SwapCard() {
     <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">Swap</h2>
-        <button className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className={`rounded-lg p-2 transition-colors ${showSettings ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+        >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
@@ -322,6 +330,56 @@ export function SwapCard() {
           </svg>
         </button>
       </div>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className="mb-4 rounded-xl bg-zinc-800/50 p-4">
+          <div className="mb-3 text-sm font-medium text-zinc-300">Slippage Tolerance</div>
+          <div className="flex items-center gap-2">
+            {SLIPPAGE_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                onClick={() => {
+                  setSlippage(preset);
+                  setCustomSlippage('');
+                }}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  slippage === preset && !customSlippage
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                }`}
+              >
+                {preset}%
+              </button>
+            ))}
+            <div className="relative flex-1">
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Custom"
+                value={customSlippage}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (/^[0-9]*\.?[0-9]*$/.test(value)) {
+                    setCustomSlippage(value);
+                    const num = parseFloat(value);
+                    if (!isNaN(num) && num > 0 && num <= 50) {
+                      setSlippage(num);
+                    }
+                  }
+                }}
+                className="w-full rounded-lg bg-zinc-700 px-3 py-1.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:ring-1 focus:ring-purple-500"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400">%</span>
+            </div>
+          </div>
+          {slippage > 5 && (
+            <div className="mt-2 text-xs text-yellow-500">
+              High slippage may result in unfavorable trades
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sell Section */}
       <div className="rounded-xl bg-zinc-800/50 p-4">
@@ -418,6 +476,10 @@ export function SwapCard() {
             <span className="text-white">
               1 {sellToken.symbol} = {parseFloat(quote.price || '0').toFixed(6)} {buyToken.symbol}
             </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-zinc-400">Slippage</span>
+            <span className="text-white">{slippage}%</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-400">Est. Gas</span>
