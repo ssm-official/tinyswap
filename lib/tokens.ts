@@ -446,3 +446,67 @@ export function getTokenByAddress(address: string, chainId: number = 1): Token |
 export function isNativeToken(address: string): boolean {
   return address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
 }
+
+// Custom tokens localStorage management
+const CUSTOM_TOKENS_KEY = 'tinyswap_custom_tokens';
+
+export function getCustomTokens(chainId: number): Token[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
+    if (!stored) return [];
+    const allCustomTokens: Record<number, Token[]> = JSON.parse(stored);
+    return allCustomTokens[chainId] || [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomToken(chainId: number, token: Token): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
+    const allCustomTokens: Record<number, Token[]> = stored ? JSON.parse(stored) : {};
+
+    if (!allCustomTokens[chainId]) {
+      allCustomTokens[chainId] = [];
+    }
+
+    // Check if token already exists
+    const exists = allCustomTokens[chainId].some(
+      (t) => t.address.toLowerCase() === token.address.toLowerCase()
+    );
+
+    if (!exists) {
+      allCustomTokens[chainId].push(token);
+      localStorage.setItem(CUSTOM_TOKENS_KEY, JSON.stringify(allCustomTokens));
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+export function removeCustomToken(chainId: number, address: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
+    if (!stored) return;
+
+    const allCustomTokens: Record<number, Token[]> = JSON.parse(stored);
+    if (!allCustomTokens[chainId]) return;
+
+    allCustomTokens[chainId] = allCustomTokens[chainId].filter(
+      (t) => t.address.toLowerCase() !== address.toLowerCase()
+    );
+
+    localStorage.setItem(CUSTOM_TOKENS_KEY, JSON.stringify(allCustomTokens));
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+export function getAllTokensForChain(chainId: number): Token[] {
+  const builtInTokens = getTokensByChain(chainId);
+  const customTokens = getCustomTokens(chainId);
+  return [...builtInTokens, ...customTokens];
+}

@@ -503,6 +503,7 @@ export function SwapCard() {
               }}
               excludeToken={buyToken}
               tokens={tokens}
+              chainId={chainId}
             />
             <button
               onClick={() => {
@@ -567,6 +568,7 @@ export function SwapCard() {
             onSelect={setBuyToken}
             excludeToken={sellToken}
             tokens={tokens}
+            chainId={chainId}
           />
         </div>
       </div>
