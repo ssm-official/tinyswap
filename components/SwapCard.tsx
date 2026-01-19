@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract, useSignTypedData } from 'wagmi';
+import { useAccount, useBalance, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract, useSignTypedData, useChainId } from 'wagmi';
 import { erc20Abi, concat, numberToHex, size } from 'viem';
-import { Token, TOKENS } from '@/lib/tokens';
+import { Token, getTokensByChain } from '@/lib/tokens';
 import { getSwapPrice, getSwapTransaction, formatTokenAmount, parseTokenAmount, isNativeEth } from '@/lib/swap';
 import { TokenSelector } from './TokenSelector';
 import { ConnectButton } from './ConnectButton';
@@ -15,8 +15,10 @@ const SLIPPAGE_PRESETS = [0.5, 1, 3];
 
 export function SwapCard() {
   const { address, isConnected } = useAccount();
-  const [sellToken, setSellToken] = useState<Token>(TOKENS[0]); // ETH
-  const [buyToken, setBuyToken] = useState<Token>(TOKENS[2]); // USDC
+  const chainId = useChainId();
+  const tokens = getTokensByChain(chainId);
+  const [sellToken, setSellToken] = useState<Token>(tokens[0]);
+  const [buyToken, setBuyToken] = useState<Token>(tokens[1] || tokens[0]);
   const [sellAmount, setSellAmount] = useState('');
   const [buyAmount, setBuyAmount] = useState('');
   const [quote, setQuote] = useState<{ price: string; estimatedGas: string } | null>(null);
@@ -29,6 +31,17 @@ export function SwapCard() {
   const [showSettings, setShowSettings] = useState(false);
   const [isUsdMode, setIsUsdMode] = useState(false);
   const [usdAmount, setUsdAmount] = useState('');
+
+  // Reset tokens when chain changes
+  useEffect(() => {
+    const newTokens = getTokensByChain(chainId);
+    setSellToken(newTokens[0]);
+    setBuyToken(newTokens[1] || newTokens[0]);
+    setSellAmount('');
+    setBuyAmount('');
+    setQuote(null);
+    setError(null);
+  }, [chainId]);
 
   // Fetch ETH price for USD conversions
   useEffect(() => {
@@ -98,6 +111,7 @@ export function SwapCard() {
         buyToken,
         sellAmount: sellAmountWei,
         takerAddress: address,
+        chainId,
       });
 
       if (!quoteData.buyAmount) {
@@ -266,6 +280,7 @@ export function SwapCard() {
         sellAmount: sellAmountWei,
         takerAddress: address,
         slippagePercentage: effectiveSlippage / 100, // Convert percentage to decimal
+        chainId,
       });
 
       if (!swapTx.to || !swapTx.data) {
@@ -487,6 +502,7 @@ export function SwapCard() {
                 }
               }}
               excludeToken={buyToken}
+              tokens={tokens}
             />
             <button
               onClick={() => {
@@ -550,6 +566,7 @@ export function SwapCard() {
             selectedToken={buyToken}
             onSelect={setBuyToken}
             excludeToken={sellToken}
+            tokens={tokens}
           />
         </div>
       </div>

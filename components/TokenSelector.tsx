@@ -1,24 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Token, TOKENS } from '@/lib/tokens';
+import { Token } from '@/lib/tokens';
 
 interface TokenSelectorProps {
   selectedToken: Token;
   onSelect: (token: Token) => void;
   excludeToken?: Token;
+  tokens: Token[];
 }
 
 export function TokenSelector({
   selectedToken,
   onSelect,
   excludeToken,
+  tokens,
 }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const filteredTokens = TOKENS.filter((token) => {
+  const filteredTokens = tokens.filter((token) => {
     if (excludeToken && token.address === excludeToken.address) {
       return false;
     }

@@ -2,7 +2,18 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
+import {
+  mainnet,
+  polygon,
+  arbitrum,
+  optimism,
+  base,
+  bsc,
+  avalanche,
+  linea,
+  scroll,
+  blast
+} from 'wagmi/chains';
 import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { useState } from 'react';
@@ -10,7 +21,7 @@ import { useState } from 'react';
 const config = getDefaultConfig({
   appName: 'TinySwap',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
-  chains: [mainnet],
+  chains: [mainnet, polygon, arbitrum, optimism, base, bsc, avalanche, linea, scroll, blast],
   ssr: true,
 });
 

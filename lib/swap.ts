@@ -1,4 +1,4 @@
-import { Token, NATIVE_ETH_ADDRESS } from './tokens';
+import { Token, NATIVE_TOKEN_ADDRESS } from './tokens';
 
 export interface SwapQuote {
   sellToken: string;
@@ -57,11 +57,13 @@ interface GetQuoteParams {
   buyToken: Token;
   sellAmount: string;
   takerAddress?: string;
+  chainId?: number;
 }
 
 interface GetSwapParams extends GetQuoteParams {
   takerAddress: string;
   slippagePercentage?: number;
+  chainId?: number;
 }
 
 export async function getSwapQuote({
@@ -69,11 +71,13 @@ export async function getSwapQuote({
   buyToken,
   sellAmount,
   takerAddress,
+  chainId = 1,
 }: GetQuoteParams): Promise<SwapQuote> {
   const params = new URLSearchParams({
     sellToken: sellToken.address,
     buyToken: buyToken.address,
     sellAmount: sellAmount,
+    chainId: chainId.toString(),
   });
 
   if (takerAddress) {
@@ -94,11 +98,13 @@ export async function getSwapPrice({
   sellToken,
   buyToken,
   sellAmount,
+  chainId = 1,
 }: GetQuoteParams): Promise<SwapQuote> {
   const params = new URLSearchParams({
     sellToken: sellToken.address,
     buyToken: buyToken.address,
     sellAmount: sellAmount,
+    chainId: chainId.toString(),
   });
 
   const response = await fetch(`/api/swap/price?${params.toString()}`);
@@ -117,6 +123,7 @@ export async function getSwapTransaction({
   sellAmount,
   takerAddress,
   slippagePercentage = 0.01,
+  chainId = 1,
 }: GetSwapParams): Promise<SwapTransaction> {
   const params = new URLSearchParams({
     sellToken: sellToken.address,
@@ -124,6 +131,7 @@ export async function getSwapTransaction({
     sellAmount: sellAmount,
     takerAddress: takerAddress,
     slippagePercentage: slippagePercentage.toString(),
+    chainId: chainId.toString(),
   });
 
   const response = await fetch(`/api/swap/quote?${params.toString()}`);
@@ -170,5 +178,5 @@ export function parseTokenAmount(amount: string, decimals: number): string {
 }
 
 export function isNativeEth(address: string): boolean {
-  return address.toLowerCase() === NATIVE_ETH_ADDRESS.toLowerCase();
+  return address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
 }

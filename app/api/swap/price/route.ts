@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   const sellToken = searchParams.get('sellToken');
   const buyToken = searchParams.get('buyToken');
   const sellAmount = searchParams.get('sellAmount');
+  const chainId = searchParams.get('chainId') || '1';
 
   if (!sellToken || !buyToken || !sellAmount) {
     return NextResponse.json(
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const params = new URLSearchParams({
-      chainId: '1',
+      chainId,
       sellToken,
       buyToken,
       sellAmount,

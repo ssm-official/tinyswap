@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const sellAmount = searchParams.get('sellAmount');
   const takerAddress = searchParams.get('takerAddress');
   const slippagePercentage = searchParams.get('slippagePercentage') || '0.01';
+  const chainId = searchParams.get('chainId') || '1';
 
   if (!sellToken || !buyToken || !sellAmount) {
     return NextResponse.json(
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     const slippageBps = Math.max(1, Math.round(parseFloat(slippagePercentage) * 10000));
 
     const params = new URLSearchParams({
-      chainId: '1',
+      chainId,
       sellToken,
       buyToken,
       sellAmount,
