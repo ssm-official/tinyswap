@@ -224,12 +224,15 @@ export function SwapCard() {
     try {
       const sellAmountWei = parseTokenAmount(sellAmount, sellToken.decimals);
 
+      // Ensure minimum slippage of 0.01% (1 bps) - 0x API requirement
+      const effectiveSlippage = Math.max(0.01, slippage);
+
       const swapTx = await getSwapTransaction({
         sellToken,
         buyToken,
         sellAmount: sellAmountWei,
         takerAddress: address,
-        slippagePercentage: slippage / 100, // Convert percentage to decimal
+        slippagePercentage: effectiveSlippage / 100, // Convert percentage to decimal
       });
 
       if (!swapTx.to || !swapTx.data) {
@@ -312,26 +315,16 @@ export function SwapCard() {
         <h2 className="text-xl font-bold text-white">Swap</h2>
         <button
           onClick={() => setShowSettings(!showSettings)}
-          className={`rounded-lg p-2 transition-colors ${showSettings ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+          className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition-colors ${showSettings ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
+          <span>{slippage === 0.5 ? 'Auto' : ''} {slippage}%</span>
+          <svg className={`h-4 w-4 transition-transform ${showSettings ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
       </div>
 
-      {/* Settings Panel */}
+      {/* Slippage Settings */}
       {showSettings && (
         <div className="mb-4 rounded-xl bg-zinc-800/50 p-4">
           <div className="mb-3 text-sm font-medium text-zinc-300">Slippage Tolerance</div>
@@ -376,6 +369,11 @@ export function SwapCard() {
           {slippage > 5 && (
             <div className="mt-2 text-xs text-yellow-500">
               High slippage may result in unfavorable trades
+            </div>
+          )}
+          {slippage < 0.01 && (
+            <div className="mt-2 text-xs text-zinc-500">
+              Minimum slippage is 0.01% (1 basis point)
             </div>
           )}
         </div>
@@ -476,10 +474,6 @@ export function SwapCard() {
             <span className="text-white">
               1 {sellToken.symbol} = {parseFloat(quote.price || '0').toFixed(6)} {buyToken.symbol}
             </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-zinc-400">Slippage</span>
-            <span className="text-white">{slippage}%</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-400">Est. Gas</span>

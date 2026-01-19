@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Convert slippage: 0.01 = 1% = 100 bps
-    const slippageBps = Math.round(parseFloat(slippagePercentage) * 10000);
+    // 0x API requires integer bps, minimum 1 bps (0.01%)
+    const slippageBps = Math.max(1, Math.round(parseFloat(slippagePercentage) * 10000));
 
     const params = new URLSearchParams({
       chainId: '1',
