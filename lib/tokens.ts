@@ -1,3 +1,65 @@
+/**
+ * ============================================================================
+ * TINYSWAP TOKEN CONFIGURATION
+ * ============================================================================
+ *
+ * This file contains all token and chain configurations for TinySwap.
+ * Developers can easily customize tokens and chains here.
+ *
+ * ============================================================================
+ * HOW TO ADD A NEW TOKEN:
+ * ============================================================================
+ *
+ * 1. Find the chain's token array in TOKENS_BY_CHAIN (e.g., chainId 1 for Ethereum)
+ * 2. Add a new token object with these properties:
+ *    {
+ *      address: '0x...',        // Contract address (use NATIVE_TOKEN_ADDRESS for native token)
+ *      symbol: 'TOKEN',         // Token symbol (e.g., 'USDC')
+ *      name: 'Token Name',      // Full name (e.g., 'USD Coin')
+ *      decimals: 18,            // Token decimals (check contract, usually 18 or 6)
+ *      logoURI: 'https://...',  // Token logo URL
+ *    }
+ *
+ * Example - Adding SHIB to Ethereum:
+ *   {
+ *     address: '0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE',
+ *     symbol: 'SHIB',
+ *     name: 'Shiba Inu',
+ *     decimals: 18,
+ *     logoURI: 'https://assets.coingecko.com/coins/images/11939/small/shiba.png',
+ *   }
+ *
+ * ============================================================================
+ * HOW TO ADD A NEW CHAIN:
+ * ============================================================================
+ *
+ * 1. Add chain to SUPPORTED_CHAINS array with:
+ *    { id: chainId, name: 'Chain Name', nativeSymbol: 'SYM', nativeName: 'Native Token' }
+ *
+ * 2. Add chain to TOKENS_BY_CHAIN with at least:
+ *    - Native token (using NATIVE_TOKEN_ADDRESS)
+ *    - Wrapped native token
+ *    - USDC or other stablecoin
+ *
+ * 3. Add chain to app/providers.tsx:
+ *    - Import from 'wagmi/chains'
+ *    - Add to chains array in getDefaultConfig
+ *
+ * 4. Add stablecoin info to CHAIN_STABLECOINS in components/SwapCard.tsx
+ *    (needed for USD price calculations)
+ *
+ * ============================================================================
+ * HOW TO REMOVE A CHAIN:
+ * ============================================================================
+ *
+ * 1. Remove from SUPPORTED_CHAINS array below
+ * 2. Remove from TOKENS_BY_CHAIN below
+ * 3. Remove from app/providers.tsx chains array
+ * 4. Remove from CHAIN_STABLECOINS in components/SwapCard.tsx
+ *
+ * ============================================================================
+ */
+
 export interface Token {
   address: string;
   symbol: string;
@@ -6,10 +68,16 @@ export interface Token {
   logoURI: string;
 }
 
-// Native token address used by 0x API
+// Native token address used by 0x API (same for all EVM chains)
 export const NATIVE_TOKEN_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-// Chain configurations
+/**
+ * SUPPORTED CHAINS
+ * Add or remove chains here. Make sure to also update:
+ * - TOKENS_BY_CHAIN below
+ * - app/providers.tsx
+ * - CHAIN_STABLECOINS in components/SwapCard.tsx
+ */
 export const SUPPORTED_CHAINS = [
   { id: 1, name: 'Ethereum', nativeSymbol: 'ETH', nativeName: 'Ethereum' },
   { id: 137, name: 'Polygon', nativeSymbol: 'MATIC', nativeName: 'Polygon' },
@@ -23,9 +91,13 @@ export const SUPPORTED_CHAINS = [
   { id: 81457, name: 'Blast', nativeSymbol: 'ETH', nativeName: 'Ethereum' },
 ] as const;
 
-// Tokens by chain ID
+/**
+ * TOKENS BY CHAIN
+ * Each chain has an array of tokens. The first token should be the native token.
+ * Add/remove tokens here to customize what appears in the token selector.
+ */
 export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
-  // Ethereum Mainnet
+  // ==================== ETHEREUM MAINNET (Chain ID: 1) ====================
   1: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -69,9 +141,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 8,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more Ethereum tokens here...
   ],
 
-  // Polygon
+  // ==================== POLYGON (Chain ID: 137) ====================
   137: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -115,9 +188,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 8,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more Polygon tokens here...
   ],
 
-  // Arbitrum
+  // ==================== ARBITRUM (Chain ID: 42161) ====================
   42161: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -161,9 +235,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 8,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more Arbitrum tokens here...
   ],
 
-  // Optimism
+  // ==================== OPTIMISM (Chain ID: 10) ====================
   10: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -207,9 +282,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 8,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more Optimism tokens here...
   ],
 
-  // Base
+  // ==================== BASE (Chain ID: 8453) ====================
   8453: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -239,9 +315,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 18,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x6b175474e89094c44da98b954eedeac495271d0f.png',
     },
+    // Add more Base tokens here...
   ],
 
-  // BNB Chain
+  // ==================== BNB CHAIN (Chain ID: 56) ====================
   56: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -285,9 +362,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 18,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more BNB Chain tokens here...
   ],
 
-  // Avalanche
+  // ==================== AVALANCHE (Chain ID: 43114) ====================
   43114: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -331,9 +409,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 8,
       logoURI: 'https://token-icons.s3.amazonaws.com/0x2260fac5e5542a773aa44fbcfedf7c193bc2c599.png',
     },
+    // Add more Avalanche tokens here...
   ],
 
-  // Linea
+  // ==================== LINEA (Chain ID: 59144) ====================
   59144: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -363,9 +442,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 6,
       logoURI: 'https://token-icons.s3.amazonaws.com/0xdac17f958d2ee523a2206206994597c13d831ec7.png',
     },
+    // Add more Linea tokens here...
   ],
 
-  // Scroll
+  // ==================== SCROLL (Chain ID: 534352) ====================
   534352: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -395,9 +475,10 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 6,
       logoURI: 'https://token-icons.s3.amazonaws.com/0xdac17f958d2ee523a2206206994597c13d831ec7.png',
     },
+    // Add more Scroll tokens here...
   ],
 
-  // Blast
+  // ==================== BLAST (Chain ID: 81457) ====================
   81457: [
     {
       address: NATIVE_TOKEN_ADDRESS,
@@ -420,10 +501,14 @@ export const TOKENS_BY_CHAIN: Record<number, Token[]> = {
       decimals: 18,
       logoURI: 'https://token-icons.s3.amazonaws.com/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
     },
+    // Add more Blast tokens here...
   ],
 };
 
-// Default to Ethereum tokens for backwards compatibility
+// ============================================================================
+// HELPER FUNCTIONS (No need to modify these)
+// ============================================================================
+
 export const TOKENS = TOKENS_BY_CHAIN[1];
 export const NATIVE_ETH_ADDRESS = NATIVE_TOKEN_ADDRESS;
 
@@ -445,68 +530,4 @@ export function getTokenByAddress(address: string, chainId: number = 1): Token |
 
 export function isNativeToken(address: string): boolean {
   return address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
-}
-
-// Custom tokens localStorage management
-const CUSTOM_TOKENS_KEY = 'tinyswap_custom_tokens';
-
-export function getCustomTokens(chainId: number): Token[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
-    if (!stored) return [];
-    const allCustomTokens: Record<number, Token[]> = JSON.parse(stored);
-    return allCustomTokens[chainId] || [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveCustomToken(chainId: number, token: Token): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
-    const allCustomTokens: Record<number, Token[]> = stored ? JSON.parse(stored) : {};
-
-    if (!allCustomTokens[chainId]) {
-      allCustomTokens[chainId] = [];
-    }
-
-    // Check if token already exists
-    const exists = allCustomTokens[chainId].some(
-      (t) => t.address.toLowerCase() === token.address.toLowerCase()
-    );
-
-    if (!exists) {
-      allCustomTokens[chainId].push(token);
-      localStorage.setItem(CUSTOM_TOKENS_KEY, JSON.stringify(allCustomTokens));
-    }
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
-export function removeCustomToken(chainId: number, address: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const stored = localStorage.getItem(CUSTOM_TOKENS_KEY);
-    if (!stored) return;
-
-    const allCustomTokens: Record<number, Token[]> = JSON.parse(stored);
-    if (!allCustomTokens[chainId]) return;
-
-    allCustomTokens[chainId] = allCustomTokens[chainId].filter(
-      (t) => t.address.toLowerCase() !== address.toLowerCase()
-    );
-
-    localStorage.setItem(CUSTOM_TOKENS_KEY, JSON.stringify(allCustomTokens));
-  } catch {
-    // Ignore localStorage errors
-  }
-}
-
-export function getAllTokensForChain(chainId: number): Token[] {
-  const builtInTokens = getTokensByChain(chainId);
-  const customTokens = getCustomTokens(chainId);
-  return [...builtInTokens, ...customTokens];
 }

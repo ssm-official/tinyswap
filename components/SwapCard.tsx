@@ -98,10 +98,12 @@ export function SwapCard() {
   const { data: sellTokenBalance } = useBalance({
     address: address,
     token: isNativeEth(sellToken.address) ? undefined : sellToken.address as `0x${string}`,
+    chainId: chainId,
   });
 
-  const { data: ethBalance } = useBalance({
+  const { data: nativeBalance } = useBalance({
     address: address,
+    chainId: chainId,
   });
 
   // Check token allowance for Permit2 contract
@@ -270,7 +272,7 @@ export function SwapCard() {
       return;
     }
 
-    if (!ethBalance?.value || ethBalance.value === BigInt(0)) {
+    if (!nativeBalance?.value || nativeBalance.value === BigInt(0)) {
       setError(`You need ETH to pay for gas (~$${estimatedGasCostUsd()}). Send some ETH to your wallet first.`);
       return;
     }
@@ -300,7 +302,7 @@ export function SwapCard() {
   const handleSwap = async () => {
     if (!address || !sellAmount || parseFloat(sellAmount) === 0) return;
 
-    if (!ethBalance?.value || ethBalance.value === BigInt(0)) {
+    if (!nativeBalance?.value || nativeBalance.value === BigInt(0)) {
       setError(`You need ETH to pay for gas (~$${estimatedGasCostUsd()}). Send some ETH to your wallet first.`);
       return;
     }
@@ -548,7 +550,6 @@ export function SwapCard() {
               }}
               excludeToken={buyToken}
               tokens={tokens}
-              chainId={chainId}
             />
             <button
               onClick={() => {
@@ -613,7 +614,6 @@ export function SwapCard() {
             onSelect={setBuyToken}
             excludeToken={sellToken}
             tokens={tokens}
-            chainId={chainId}
           />
         </div>
       </div>
